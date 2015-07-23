@@ -10,7 +10,8 @@ chmod 755 /var/log/stanchion
 ulimit -n 4096
 
 # Ensure the Erlang node name is set correctly
-sed -i.bak "s/127.0.0.1/${IP_ADDRESS}/" /etc/stanchion/vm.args
+sed -i.bak "s/riak_host = 127.0.0.1/riak_host = ${IP_ADDRESS}/" /etc/stanchion/stanchion.conf
+sed -i.bak "s/nodename = stanchion@127.0.0.1/nodename = stanchion@${IP_ADDRESS}/" /etc/stanchion/stanchion.conf
 
 # Start Stanchion
 if ! env | egrep -q "SEED_PORT_8080_TCP_ADDR"; then

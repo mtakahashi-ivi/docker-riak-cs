@@ -1,5 +1,7 @@
 #! /bin/bash
 
+PREFIX=hectcastro
+
 set -e
 
 if env | egrep -q "DOCKER_RIAK_CS_DEBUG"; then
@@ -21,7 +23,7 @@ CLEAN_DOCKER_HOST=$(echo "${DOCKER_HOST}" | cut -d'/' -f3 | cut -d':' -f1)
 CLEAN_DOCKER_HOST=${CLEAN_DOCKER_HOST:-localhost}
 DOCKER_RIAK_CS_CLUSTER_SIZE=${DOCKER_RIAK_CS_CLUSTER_SIZE:-5}
 
-if docker ps -a | egrep "hectcastro/riak" >/dev/null; then
+if docker ps -a | egrep "${PREFIX}/riak" >/dev/null; then
   echo
   echo "It looks like you already have some Riak containers running."
   echo "Please take them down before attempting to bring up another"
@@ -46,11 +48,11 @@ do
     docker run -e "DOCKER_RIAK_CS_CLUSTER_SIZE=${DOCKER_RIAK_CS_CLUSTER_SIZE}" \
                -e "DOCKER_RIAK_CS_AUTOMATIC_CLUSTERING=${DOCKER_RIAK_CS_AUTOMATIC_CLUSTERING}" \
                -P --name "riak-cs${index}" --link "riak-cs01:seed" \
-               -d hectcastro/riak-cs > /dev/null 2>&1
+               -d ${PREFIX}/riak-cs > /dev/null 2>&1
   else
     docker run -e "DOCKER_RIAK_CS_CLUSTER_SIZE=${DOCKER_RIAK_CS_CLUSTER_SIZE}" \
                -e "DOCKER_RIAK_CS_AUTOMATIC_CLUSTERING=${DOCKER_RIAK_CS_AUTOMATIC_CLUSTERING}" \
-               -P --name "riak-cs${index}" -d hectcastro/riak-cs > /dev/null 2>&1
+               -P --name "riak-cs${index}" -d ${PREFIX}/riak-cs > /dev/null 2>&1
   fi
 
   CONTAINER_ID=$(docker ps | egrep "riak-cs${index}[^/]" | cut -d" " -f1)
@@ -77,7 +79,7 @@ if env | egrep -q "DOCKER_RIAK_CS_HAPROXY=1"; then
 
   eval docker run -p 8080:8080 -p 8888:8888 \
     "${RIAK_CS_CONTAINER_LINKS}"\
-    --name "riak-cs-haproxy" -d hectcastro/riak-cs-haproxy > /dev/null 2>&1
+    --name "storage" -d ${PREFIX}/riak-cs-haproxy > /dev/null 2>&1
 
   until curl -s "http://${CLEAN_DOCKER_HOST}:8080/riak-cs/ping" | egrep "OK" > /dev/null 2>&1;
   do
@@ -109,18 +111,19 @@ fi
 if [ -f $INSECURE_KEY_FILE ]; then
   # SSH requires some constraints on private key permissions, force it!
   chmod 600 .insecure_key
-
-  echo
-  echo "  Riak CS credentials:"
-  echo
-
-  for field in admin_key admin_secret ; do
-    echo -n "    ${field}: "
-
-    ssh -i "${INSECURE_KEY_FILE}" -o "LogLevel=quiet" -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" \
-        -p "${CS01_PORT}" "root@${CLEAN_DOCKER_HOST}" egrep "${field}" /etc/riak-cs/app.config | cut -d'"' -f2
-  done
 fi
+
+echo
+echo "  Riak CS credentials:"
+echo
+
+for field in admin.key admin.secret ; do
+  # admin_key, admin_secret is expected.
+  echo -n "    ${field//\./_}: "
+
+  ssh -i "${INSECURE_KEY_FILE}" -o "LogLevel=quiet" -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" \
+      -p "${CS01_PORT}" "root@${CLEAN_DOCKER_HOST}" egrep "${field//./\\.}" /etc/riak-cs/riak-cs.conf | cut -d' ' -f3
+done
 
 echo
 echo "Please wait approximately 30 seconds for the cluster to stabilize."
