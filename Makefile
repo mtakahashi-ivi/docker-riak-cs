@@ -15,3 +15,9 @@ test-cluster:
 
 stop-cluster:
 	./bin/stop-cluster.sh
+
+get-cred:
+	@echo "Access Key: "
+	@docker exec $$(docker ps --format "{{.ID}}\t{{.Names}}" | grep riak-cs01 | cut -f1) egrep "admin.key" /etc/riak-cs/riak-cs.conf | cut -d' ' -f3
+	@echo "Secret Key:"
+	@docker exec $$(docker ps --format "{{.ID}}\t{{.Names}}" | grep riak-cs01 | cut -f1) egrep "admin.secret" /etc/riak-cs/riak-cs.conf | cut -d' ' -f3
